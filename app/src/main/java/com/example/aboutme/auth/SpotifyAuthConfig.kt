@@ -1,7 +1,7 @@
 package com.example.aboutme.auth
 
 const val SPOTIFY_CLIENT_ID = "89e02f14cb9d4163b6315b334bfc4a68" // cámbialo
-const val SPOTIFY_REDIRECT_URI = "com.example.aboutme://spotify-callback"
+const val SPOTIFY_REDIRECT_URI = "kuri-spotify-login://callback"
 
 const val SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 
