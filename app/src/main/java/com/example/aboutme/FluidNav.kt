@@ -262,24 +262,24 @@ private fun FabWithHalo(
     animationProgress: Float,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val blurEffect: RenderEffect? = remember { getBlurRenderEffect() }
     val haloAlpha = 0.28f * animationProgress
 
     Box(
         modifier = modifier.size(83.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Halo difuso (no parece otro botón)
+        // Halo difuso SIN RenderEffect ni MIRROR
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .graphicsLayer {
-                    blurEffect?.let { renderEffect = it }
+                    // solo usamos alpha para animar la intensidad
+                    alpha = haloAlpha
                 }
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            backgroundColor.copy(alpha = haloAlpha),
+                            backgroundColor.copy(alpha = 0.9f),
                             Color.Transparent
                         )
                     ),
@@ -291,6 +291,7 @@ private fun FabWithHalo(
     }
 }
 
+
 @Composable
 fun AnimatedFab(
     modifier: Modifier = Modifier,
@@ -299,8 +300,6 @@ fun AnimatedFab(
     glowColor: Color? = null,
     onClick: () -> Unit = {}
 ) {
-    val blurEffect: RenderEffect? = remember { getBlurRenderEffect() }
-
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -320,12 +319,11 @@ fun AnimatedFab(
             },
         contentAlignment = Alignment.Center
     ) {
-        if (glowColor != null && blurEffect != null) {
+        if (glowColor != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .graphicsLayer {
-                        renderEffect = blurEffect
                         alpha = 0.6f + 0.4f * hoverProgress
                     }
                     .background(
@@ -359,6 +357,7 @@ fun AnimatedFab(
         }
     }
 }
+
 
 
 
