@@ -62,6 +62,11 @@ fun AboutMeWithFluidNav(
                 if (renderEffect != null && isMenuExtended.value) {
                     base.graphicsLayer { this.renderEffect = renderEffect }
                 } else base
+            },
+            onCvClick = {
+                navController.navigate("cv_screen") {
+                    launchSingleTop = true
+                }
             }
         )
 
@@ -104,6 +109,7 @@ fun AboutMeWithFluidNav(
         }
     }
 }
+
 
 
 
@@ -229,9 +235,93 @@ fun ProjectsWithFluidNav(
                 if (renderEffect != null && isMenuExtended.value) {
                     base.graphicsLayer { this.renderEffect = renderEffect }
                 } else base
+            },
+            onProjectClick = { project ->
+                navController.navigate("project_images/${project.id}")
             }
         )
 
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(bottom = 14.dp)
+        ) {
+            CustomBottomNavigation(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+
+            Circle(
+                color = MaterialTheme.colorScheme.onBackground,
+                animationProgress = clickAnimationProgress
+            )
+
+            FabGroup(
+                animationProgress = fabAnimationProgress,
+                toggleAnimation = { isMenuExtended.value = !isMenuExtended.value },
+                onSpotifyClick = {
+                    navController.navigate("spotify_screen") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onAboutClick = {
+                    navController.navigate("home") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onProjectsClick = {
+                    navController.navigate("projects_gallery") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun CvWithFluidNav(
+    navController: NavController
+) {
+    val isMenuExtended = remember { mutableStateOf(false) }
+
+    val fabAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 600,
+            easing = FastOutSlowInEasing
+        ),
+        label = "fabProgress"
+    )
+
+    val clickAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 350,
+            easing = LinearEasing
+        ),
+        label = "clickProgress"
+    )
+
+    val renderEffect: RenderEffect? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getBlurRenderEffect()
+        } else null
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF232633))
+    ) {
+        CvScreen(
+            modifier = Modifier.let { base ->
+                if (renderEffect != null && isMenuExtended.value) {
+                    base.graphicsLayer { this.renderEffect = renderEffect }
+                } else base
+            }
+        )
 
         Box(
             Modifier
