@@ -33,25 +33,27 @@ import kotlinx.coroutines.delay
 data class TrackUi(
     val title: String,
     val artist: String,
-    val duration: String
+    val duration: String,
+    val imageUrl: String?
 )
+
 
 data class NowPlayingUi(
     val title: String,
     val artist: String,
-    val position: String, // 0:32
-    val duration: String, // 4:18
+    val position: String,
+    val duration: String,
     val imageUrl: String?
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpotifyScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
-    // Cargar token guardado al entrar
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences(
             "spotify_prefs",
@@ -70,12 +72,14 @@ fun SpotifyScreen(
         Log.d("SpotifyScreen", "accessToken = ${accessToken?.take(10) ?: "null"}")
     }
 
-    // Estado para "Reproduciendo ahora"
     var nowPlaying by remember { mutableStateOf<NowPlayingUi?>(null) }
     var nowPlayingLoading by remember { mutableStateOf(false) }
     var nowPlayingError by remember { mutableStateOf<String?>(null) }
 
-    // Función auxiliar para cargar la canción actual
+    var topTracks by remember { mutableStateOf<List<TrackUi>>(emptyList()) }
+    var topTracksLoading by remember { mutableStateOf(false) }
+    var topTracksError by remember { mutableStateOf<String?>(null) }
+
     suspend fun loadNowPlaying(accessTokenNonNull: String) {
         nowPlayingLoading = true
         nowPlayingError = null
@@ -121,7 +125,38 @@ fun SpotifyScreen(
         }
     }
 
-    // Auto-update cada cierto tiempo mientras haya token
+    suspend fun loadTopTracks(accessTokenNonNull: String) {
+        topTracksLoading = true
+        topTracksError = null
+
+        try {
+            val apiTracks = SpotifyPlaybackService.getTopTracks(accessTokenNonNull, limit = 20)
+
+            fun format(ms: Int?): String {
+                val value = ms ?: 0
+                val totalSeconds = value / 1000
+                val minutes = totalSeconds / 60
+                val seconds = totalSeconds % 60
+                return "%d:%02d".format(minutes, seconds)
+            }
+
+            topTracks = apiTracks.map { t ->
+                TrackUi(
+                    title = t.name ?: "Sin título",
+                    artist = t.artists?.firstOrNull()?.name ?: "Unknown",
+                    duration = format(t.durationMs),
+                    imageUrl = t.imageUrl
+                )
+            }
+
+        } catch (e: Exception) {
+            topTracksError = "No se pudieron cargar tus temas más escuchados"
+            topTracks = emptyList()
+        } finally {
+            topTracksLoading = false
+        }
+    }
+
     LaunchedEffect(accessToken) {
         if (accessToken == null) {
             nowPlaying = null
@@ -130,44 +165,68 @@ fun SpotifyScreen(
             return@LaunchedEffect
         }
 
-        // Bucle de actualización periódica
         while (true) {
             loadNowPlaying(accessToken)
-            delay(8_000L) // cada 8 segundos
+            delay(8_000L)
         }
     }
 
+    LaunchedEffect(accessToken) {
+        if (accessToken == null) {
+            topTracks = emptyList()
+            topTracksLoading = false
+            topTracksError = null
+            return@LaunchedEffect
+        }
+
+        loadTopTracks(accessToken)
+    }
+
     val fakeTracks = listOf(
-        TrackUi("Focus mode", "Lo-fi beats", "2:31"),
-        TrackUi("Clean deploy", "Dev Flow", "3:12"),
-        TrackUi("Night coding", "Synthwave", "4:03"),
-        TrackUi("Bug fixing", "Soft electronica", "3:44"),
-        TrackUi("Refactor vibes", "Indie chill", "2:57")
+        TrackUi("Focus mode", "Lo-fi beats", "2:31", null),
+        TrackUi("Clean deploy", "Dev Flow", "3:12", null),
+        TrackUi("Night coding", "Synthwave", "4:03", null),
+        TrackUi("Bug fixing", "Soft electronica", "3:44", null),
+        TrackUi("Refactor vibes", "Indie chill", "2:57", null)
     )
+
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text("Spotify", fontWeight = FontWeight.SemiBold)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Atrás"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                )
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 1.dp, vertical = 1.dp)
+            ) {
+                ElevatedButton(
+                    onClick = onBack,
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = Color(0xFF121212),
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Volver",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Volver al inicio",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         },
-        containerColor = Color(0xFF05080D)
+        containerColor = Color(0xFF05080D),
+        modifier = modifier
     ) { innerPadding ->
-        Box(
+
+    Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -185,7 +244,6 @@ fun SpotifyScreen(
                     .fillMaxSize()
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                // Header con portada o icono de Spotify
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -226,10 +284,9 @@ fun SpotifyScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Coding playlist",
+                            text = "Coding Time",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -243,7 +300,6 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Solo mostramos botón de conectar si aún no hay token
                 if (accessToken == null) {
                     Button(
                         onClick = { SpotifyAuthManager.startLogin(context) }
@@ -256,7 +312,6 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Bloque "Reproduciendo ahora"
                 Text(
                     text = "Reproduciendo ahora",
                     style = MaterialTheme.typography.titleMedium,
@@ -299,17 +354,39 @@ fun SpotifyScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Tracks",
+                    text = if (accessToken != null) "Tus más escuchados del último mes" else "Tracks",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = Color.White
                 )
+
+                if (accessToken != null && topTracksLoading && topTracks.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Cargando tus temas más escuchados...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                } else if (accessToken != null && topTracksError != null && topTracks.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = topTracksError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val tracksToShow = when {
+                    accessToken != null && topTracks.isNotEmpty() -> topTracks
+                    else -> fakeTracks
+                }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(fakeTracks) { track ->
+                    items(tracksToShow) { track ->
                         TrackRow(track = track)
                     }
                 }
@@ -465,6 +542,37 @@ private fun TrackRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (track.imageUrl != null) {
+                AsyncImage(
+                    model = track.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color(0xFF121212)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_spotify),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -487,3 +595,4 @@ private fun TrackRow(
         )
     }
 }
+
