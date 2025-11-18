@@ -57,8 +57,6 @@ fun AboutMeWithFluidNav(
             .fillMaxSize()
             .background(Color(0xFF232633))
     ) {
-
-        // Contenido principal (tu AboutMeScreen) con blur opcional
         AboutMeScreen(
             modifier = Modifier.let { base ->
                 if (renderEffect != null && isMenuExtended.value) {
@@ -67,34 +65,47 @@ fun AboutMeWithFluidNav(
             }
         )
 
-        // Nav + FABs + círculo de onda
         Box(
             Modifier
                 .fillMaxSize()
                 .padding(bottom = 14.dp)
         ) {
-            // Bottom bar alineada al fondo
             CustomBottomNavigation(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
-            // Onda de click (detrás de los FAB)
             Circle(
                 color = MaterialTheme.colorScheme.onBackground,
                 animationProgress = clickAnimationProgress
             )
 
-            // Grupo de FABs, con el botón de Spotify navegando a otra vista
             FabGroup(
                 animationProgress = fabAnimationProgress,
                 toggleAnimation = { isMenuExtended.value = !isMenuExtended.value },
                 onSpotifyClick = {
-                    navController.navigate("spotify_screen")   // 👈 aquí ya compila
+                    navController.navigate("spotify_screen") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onAboutClick = {
+                    navController.navigate("home") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onProjectsClick = {
+                    navController.navigate("projects_gallery") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
                 }
             )
         }
     }
 }
+
+
 
 @Composable
 fun SpotifyWithFluidNav(
@@ -130,8 +141,6 @@ fun SpotifyWithFluidNav(
             .fillMaxSize()
             .background(Color(0xFF232633))
     ) {
-
-        // 👇 Contenido principal: tu SpotifyScreen, con blur opcional igual que AboutMeScreen
         SpotifyScreen(
             onBack = { navController.popBackStack() },
             modifier = Modifier.let { base ->
@@ -141,35 +150,125 @@ fun SpotifyWithFluidNav(
             }
         )
 
-        // 👇 Nav + FABs + círculo, igual que en AboutMeWithFluidNav
         Box(
             Modifier
                 .fillMaxSize()
                 .padding(bottom = 14.dp)
         ) {
-            // Bottom bar alineada al fondo
             CustomBottomNavigation(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
-            // Onda de click (detrás de los FAB)
             Circle(
                 color = MaterialTheme.colorScheme.onBackground,
                 animationProgress = clickAnimationProgress
             )
 
-            // Grupo de FABs
             FabGroup(
                 animationProgress = fabAnimationProgress,
                 toggleAnimation = { isMenuExtended.value = !isMenuExtended.value },
                 onSpotifyClick = {
-                    // Si ya estás en spotify_screen no hace falta navegar, pero esto no rompe nada
                     navController.navigate("spotify_screen") {
                         launchSingleTop = true
                     }
+                    isMenuExtended.value = false
+                },
+                onAboutClick = {
+                    navController.navigate("home") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onProjectsClick = {
+                    navController.navigate("projects_gallery") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
                 }
             )
         }
     }
 }
 
+@Composable
+fun ProjectsWithFluidNav(
+    navController: NavController
+) {
+    val isMenuExtended = remember { mutableStateOf(false) }
+
+    val fabAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 600,
+            easing = FastOutSlowInEasing
+        ),
+        label = "fabProgress"
+    )
+
+    val clickAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 350,
+            easing = LinearEasing
+        ),
+        label = "clickProgress"
+    )
+
+    val renderEffect: RenderEffect? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getBlurRenderEffect()
+        } else null
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF232633))
+    ) {
+        ProjectsGalleryScreen(
+            modifier = Modifier.let { base ->
+                if (renderEffect != null && isMenuExtended.value) {
+                    base.graphicsLayer { this.renderEffect = renderEffect }
+                } else base
+            }
+        )
+
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(bottom = 14.dp)
+        ) {
+            CustomBottomNavigation(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+
+            Circle(
+                color = MaterialTheme.colorScheme.onBackground,
+                animationProgress = clickAnimationProgress
+            )
+
+            FabGroup(
+                animationProgress = fabAnimationProgress,
+                toggleAnimation = { isMenuExtended.value = !isMenuExtended.value },
+                onSpotifyClick = {
+                    navController.navigate("spotify_screen") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onAboutClick = {
+                    navController.navigate("home") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                },
+                onProjectsClick = {
+                    navController.navigate("projects_gallery") {
+                        launchSingleTop = true
+                    }
+                    isMenuExtended.value = false
+                }
+            )
+        }
+    }
+}
