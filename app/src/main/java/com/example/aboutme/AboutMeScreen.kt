@@ -151,7 +151,10 @@ fun stringsFor(lang: AppLanguage): UiStrings =
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AboutMeScreen(modifier: Modifier = Modifier) {
+fun AboutMeScreen(
+    modifier: Modifier = Modifier,
+    onCvClick: () -> Unit
+) {
     val configuration = LocalConfiguration.current
 
     val systemLang = remember(configuration) {
@@ -167,7 +170,6 @@ fun AboutMeScreen(modifier: Modifier = Modifier) {
 
     var appLang by remember { mutableStateOf(systemLang) }
     val t = remember(appLang) { stringsFor(appLang) }
-
 
     Box(
         modifier = modifier.background(Onyx)
@@ -191,12 +193,12 @@ fun AboutMeScreen(modifier: Modifier = Modifier) {
                 )
             }
 
-
             Spacer(Modifier.height(20.dp))
 
             HeroCard(
                 modifier = Modifier.fillMaxWidth(),
-                t = t
+                t = t,
+                onCvClick = onCvClick
             )
 
             Spacer(Modifier.height(20.dp))
@@ -239,6 +241,9 @@ fun AboutMeScreen(modifier: Modifier = Modifier) {
         }
     }
 }
+
+
+
 
 @Composable
 fun LanguageToggle(
@@ -312,7 +317,11 @@ fun AnimatedProfileTitle(
 
 
 @Composable
-fun HeroCard(modifier: Modifier = Modifier, t: UiStrings) {
+fun HeroCard(
+    modifier: Modifier = Modifier,
+    t: UiStrings,
+    onCvClick: () -> Unit
+) {
     Surface(
         modifier = modifier,
         color = Onyx.copy(alpha = 0.95f),
@@ -369,7 +378,6 @@ fun HeroCard(modifier: Modifier = Modifier, t: UiStrings) {
                 InfoChip(t.heroChip3, NodeNeon)
             }
 
-
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
@@ -377,7 +385,7 @@ fun HeroCard(modifier: Modifier = Modifier, t: UiStrings) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FilledTonalButton(
-                    onClick = { },
+                    onClick = onCvClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(999.dp),
                     colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
@@ -401,6 +409,9 @@ fun HeroCard(modifier: Modifier = Modifier, t: UiStrings) {
         }
     }
 }
+
+
+
 
 @Composable
 fun SectionCard(
