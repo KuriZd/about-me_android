@@ -192,41 +192,10 @@ fun SpotifyScreen(
 
 
     Scaffold(
-        topBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 1.dp, vertical = 1.dp)
-            ) {
-                ElevatedButton(
-                    onClick = onBack,
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = Color(0xFF121212),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Volver",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Volver al inicio",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
         containerColor = Color(0xFF05080D),
         modifier = modifier
     ) { innerPadding ->
-
-    Box(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
