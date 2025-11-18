@@ -40,28 +40,37 @@ fun SpotifyScreen(
 ) {
     val context = LocalContext.current
 
+    // 🔑 clave para forzar recargas manuales y al arrancar
+    var refreshKey by remember { mutableStateOf(0) }
+
     // Cargar token guardado al entrar
     LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("spotify_prefs", android.content.Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(
+            "spotify_prefs",
+            android.content.Context.MODE_PRIVATE
+        )
         val savedToken = prefs.getString("access_token", null)
+        Log.d("SpotifyScreen", "savedToken from prefs = ${savedToken?.take(10) ?: "null"}")
+
         if (savedToken != null && SpotifyAuthState.accessToken == null) {
             SpotifyAuthState.accessToken = savedToken
+            // 👇 forzamos una recarga de "Reproduciendo ahora"
+            refreshKey++
         }
     }
 
     val accessToken = SpotifyAuthState.accessToken
 
     LaunchedEffect(accessToken) {
-        Log.d("SpotifyScreen", "accessToken = $accessToken")
+        Log.d("SpotifyScreen", "accessToken = ${accessToken?.take(10) ?: "null"}")
     }
 
     // Estado para "Reproduciendo ahora"
     var nowPlaying by remember { mutableStateOf<TrackUi?>(null) }
     var nowPlayingLoading by remember { mutableStateOf(false) }
     var nowPlayingError by remember { mutableStateOf<String?>(null) }
-    var refreshKey by remember { mutableStateOf(0) } // para forzar recarga manual
 
-    // Cada vez que cambien accessToken o refreshKey, pedimos la canción actual
+    // 👇 Usa también refreshKey aquí
     LaunchedEffect(accessToken, refreshKey) {
         if (accessToken == null) {
             nowPlaying = null
