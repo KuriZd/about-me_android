@@ -194,10 +194,8 @@ fun NeonImageFab(
     glowColor: Color,
     onClick: () -> Unit
 ) {
-    val blurEffect: RenderEffect? = remember { getBlurRenderEffect() }
-
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val isPressed = interactionSource.collectIsPressedAsState().value
 
     val hoverProgress by animateFloatAsState(
         targetValue = if (isPressed) 1f else 0f,
@@ -215,25 +213,23 @@ fun NeonImageFab(
             },
         contentAlignment = Alignment.Center
     ) {
-        if (blurEffect != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = blurEffect
-                        alpha = 0.7f + 0.3f * hoverProgress
-                    }
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                glowColor.copy(alpha = 0.95f),
-                                Color.Transparent
-                            )
-                        ),
-                        shape = CircleShape
-                    )
-            )
-        }
+        // Halo neón SIN RenderEffect
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    alpha = 0.6f + 0.4f * hoverProgress
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = 0.9f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
 
         FloatingActionButton(
             onClick = onClick,
@@ -248,13 +244,14 @@ fun NeonImageFab(
         ) {
             Icon(
                 painter = painter,
-                contentDescription = null,
+                contentDescription = "Spotify",
                 tint = Color.Unspecified,
                 modifier = Modifier.size(40.dp)
             )
         }
     }
 }
+
 
 
 
