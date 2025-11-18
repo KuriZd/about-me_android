@@ -11,26 +11,37 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.aboutme.R
 import com.example.aboutme.auth.SpotifyAuthManager
 import com.example.aboutme.auth.SpotifyAuthState
 import com.example.aboutme.network.SpotifyPlaybackService
+import kotlinx.coroutines.delay
 
 data class TrackUi(
     val title: String,
     val artist: String,
     val duration: String
+)
+
+data class NowPlayingUi(
+    val title: String,
+    val artist: String,
+    val position: String, // 0:32
+    val duration: String, // 4:18
+    val imageUrl: String?
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,9 +51,6 @@ fun SpotifyScreen(
 ) {
     val context = LocalContext.current
 
-    // 🔑 clave para forzar recargas manuales y al arrancar
-    var refreshKey by remember { mutableStateOf(0) }
-
     // Cargar token guardado al entrar
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences(
@@ -50,12 +58,9 @@ fun SpotifyScreen(
             android.content.Context.MODE_PRIVATE
         )
         val savedToken = prefs.getString("access_token", null)
-        Log.d("SpotifyScreen", "savedToken from prefs = ${savedToken?.take(10) ?: "null"}")
-
+        Log.d("SpotifyScreen", "savedToken = ${savedToken?.take(10) ?: "null"}")
         if (savedToken != null && SpotifyAuthState.accessToken == null) {
             SpotifyAuthState.accessToken = savedToken
-            // 👇 forzamos una recarga de "Reproduciendo ahora"
-            refreshKey++
         }
     }
 
@@ -66,40 +71,43 @@ fun SpotifyScreen(
     }
 
     // Estado para "Reproduciendo ahora"
-    var nowPlaying by remember { mutableStateOf<TrackUi?>(null) }
+    var nowPlaying by remember { mutableStateOf<NowPlayingUi?>(null) }
     var nowPlayingLoading by remember { mutableStateOf(false) }
     var nowPlayingError by remember { mutableStateOf<String?>(null) }
 
-    // 👇 Usa también refreshKey aquí
-    LaunchedEffect(accessToken, refreshKey) {
-        if (accessToken == null) {
-            nowPlaying = null
-            nowPlayingError = null
-            nowPlayingLoading = false
-            return@LaunchedEffect
-        }
-
+    // Función auxiliar para cargar la canción actual
+    suspend fun loadNowPlaying(accessTokenNonNull: String) {
         nowPlayingLoading = true
         nowPlayingError = null
 
         try {
-            val response = SpotifyPlaybackService.getCurrentlyPlaying(accessToken)
+            val response = SpotifyPlaybackService.getCurrentlyPlaying(accessTokenNonNull)
             val track = response?.item
 
             if (track != null && track.name != null) {
                 val title = track.name
                 val artist = track.artists?.firstOrNull()?.name ?: "Unknown"
                 val durationMs = track.durationMs ?: 0
+                val progressMs = response.progressMs ?: 0
+                val imageUrl = track.imageUrl
 
-                val totalSeconds = durationMs / 1000
-                val minutes = totalSeconds / 60
-                val seconds = totalSeconds % 60
-                val durationText = "%d:%02d".format(minutes, seconds)
+                fun format(ms: Int): String {
+                    val totalSeconds = ms / 1000
+                    val minutes = totalSeconds / 60
+                    val seconds = totalSeconds % 60
+                    return "%d:%02d".format(minutes, seconds)
+                }
+                Log.d(
+                    "SpotifyPlaybackService",
+                    "progressMs=${response.progressMs}, durationMs=${track.durationMs}, imageUrl=$imageUrl"
+                )
 
-                nowPlaying = TrackUi(
+                nowPlaying = NowPlayingUi(
                     title = title,
                     artist = artist,
-                    duration = durationText
+                    position = format(progressMs),
+                    duration = format(durationMs),
+                    imageUrl = imageUrl
                 )
             } else {
                 nowPlaying = null
@@ -110,6 +118,22 @@ fun SpotifyScreen(
             nowPlaying = null
         } finally {
             nowPlayingLoading = false
+        }
+    }
+
+    // Auto-update cada cierto tiempo mientras haya token
+    LaunchedEffect(accessToken) {
+        if (accessToken == null) {
+            nowPlaying = null
+            nowPlayingError = null
+            nowPlayingLoading = false
+            return@LaunchedEffect
+        }
+
+        // Bucle de actualización periódica
+        while (true) {
+            loadNowPlaying(accessToken)
+            delay(8_000L) // cada 8 segundos
         }
     }
 
@@ -161,7 +185,7 @@ fun SpotifyScreen(
                     .fillMaxSize()
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                // Header con logo
+                // Header con portada o icono de Spotify
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -169,17 +193,31 @@ fun SpotifyScreen(
                     Card(
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF121212)
+                            containerColor = if (nowPlaying?.imageUrl != null)
+                                Color.Transparent
+                            else
+                                Color(0xFF121212)
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_spotify),
-                            contentDescription = "Playlist cover",
-                            modifier = Modifier
-                                .size(84.dp)
-                                .padding(10.dp)
-                        )
+                        if (nowPlaying?.imageUrl != null) {
+                            AsyncImage(
+                                model = nowPlaying!!.imageUrl,
+                                contentDescription = "Portada actual",
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .clip(RoundedCornerShape(18.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_spotify),
+                                contentDescription = "Playlist cover",
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .padding(10.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -189,14 +227,15 @@ fun SpotifyScreen(
                     ) {
                         Text(
                             text = "Coding playlist",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
+
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Para concentrarte mientras codeas",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.8f)
                         )
                     }
@@ -204,54 +243,26 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Botón para iniciar login con Spotify o estado conectado
+                // Solo mostramos botón de conectar si aún no hay token
                 if (accessToken == null) {
                     Button(
                         onClick = { SpotifyAuthManager.startLogin(context) }
                     ) {
                         Text(text = "Conectar con Spotify")
                     }
-                } else {
-                    Text(
-                        text = "Conectado a Spotify ✅",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF1DB954)
-                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Bloque "Reproduciendo ahora" mejorado
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Reproduciendo ahora",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    IconButton(
-                        onClick = {
-                            if (accessToken != null) {
-                                refreshKey++ // fuerza recarga
-                            }
-                        },
-                        enabled = accessToken != null && !nowPlayingLoading
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Actualizar",
-                            tint = if (accessToken != null)
-                                Color.White.copy(alpha = 0.8f)
-                            else
-                                Color.White.copy(alpha = 0.3f)
-                        )
-                    }
-                }
+                // Bloque "Reproduciendo ahora"
+                Text(
+                    text = "Reproduciendo ahora",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -263,10 +274,10 @@ fun SpotifyScreen(
                             color = Color.White.copy(alpha = 0.8f)
                         )
                     }
-                    nowPlayingLoading -> {
+                    nowPlayingLoading && nowPlaying == null -> {
                         NowPlayingSkeletonCard()
                     }
-                    nowPlayingError != null -> {
+                    nowPlayingError != null && nowPlaying == null -> {
                         Text(
                             text = nowPlayingError ?: "",
                             style = MaterialTheme.typography.bodySmall,
@@ -308,7 +319,7 @@ fun SpotifyScreen(
 }
 
 @Composable
-private fun NowPlayingCard(track: TrackUi) {
+private fun NowPlayingCard(track: NowPlayingUi) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -323,21 +334,39 @@ private fun NowPlayingCard(track: TrackUi) {
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // “Portada” circular con icono de play
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF1DB954),
-                                Color(0xFF121212)
-                            )
-                        ),
-                        shape = CircleShape
-                    ),
+                    .clip(RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
+                if (track.imageUrl != null) {
+                    AsyncImage(
+                        model = track.imageUrl,
+                        contentDescription = "Portada del álbum",
+                        modifier = Modifier.matchParentSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.25f))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF1DB954),
+                                        Color(0xFF121212)
+                                    )
+                                )
+                            )
+                    )
+                }
+
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Reproduciendo",
@@ -364,7 +393,7 @@ private fun NowPlayingCard(track: TrackUi) {
             }
 
             Text(
-                text = track.duration,
+                text = "${track.position} / ${track.duration}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f)
             )
