@@ -1,5 +1,6 @@
 package com.example.aboutme
 
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalConfiguration
 import java.util.Locale
 
 private val CeladonBlue = Color(0xFF1783A5)
@@ -150,12 +152,22 @@ fun stringsFor(lang: AppLanguage): UiStrings =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AboutMeScreen(modifier: Modifier = Modifier) {
-    val systemLang = remember {
-        val code = Locale.getDefault().language.lowercase()
+    val configuration = LocalConfiguration.current
+
+    val systemLang = remember(configuration) {
+        val locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            configuration.locales[0]
+        } else {
+            @Suppress("DEPRECATION")
+            configuration.locale
+        }
+        val code = locale.language.lowercase()
         if (code.startsWith("es")) AppLanguage.ES else AppLanguage.EN
     }
+
     var appLang by remember { mutableStateOf(systemLang) }
     val t = remember(appLang) { stringsFor(appLang) }
+
 
     Box(
         modifier = modifier.background(Onyx)
