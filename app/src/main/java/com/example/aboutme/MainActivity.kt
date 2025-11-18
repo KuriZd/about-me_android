@@ -12,7 +12,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavHostController
-import com.example.aboutme.ui.SpotifyScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,17 +28,34 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         startDestination = "home"
                     ) {
-                        composable("home") {
-                            AboutMeWithFluidNav(navController = navController)
-                        }
+                            composable("home") {
+                                AboutMeWithFluidNav(navController = navController)
+                            }
 
-                        composable("spotify_screen") {
-                            SpotifyWithFluidNav(navController = navController)
-                        }
+                            composable("spotify_screen") {
+                                SpotifyWithFluidNav(navController = navController)
+                            }
 
-                        composable("projects_gallery") {
-                            ProjectsWithFluidNav(navController = navController)
-                        }
+                            composable("projects_gallery") {
+                                ProjectsWithFluidNav(navController = navController)
+                            }
+
+                            composable("cv_screen") {
+                                CvWithFluidNav(navController = navController)
+                            }
+
+                            composable(
+                                route = "project_images/{projectId}",
+                                arguments = listOf(
+                                    navArgument("projectId") { type = NavType.IntType }
+                                )
+                            ) { backStackEntry ->
+                                val projectId = backStackEntry.arguments?.getInt("projectId") ?: 0
+                                ProjectImagesScreen(
+                                    navController = navController,
+                                    projectId = projectId
+                                )
+                            }
                     }
                 }
             }
