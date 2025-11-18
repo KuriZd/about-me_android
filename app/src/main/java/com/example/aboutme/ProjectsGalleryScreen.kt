@@ -2,6 +2,7 @@ package com.example.aboutme
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,7 +38,8 @@ data class GalleryProject(
 
 @Composable
 fun ProjectsGalleryScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onProjectClick: (GalleryProject) -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val locale: Locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -145,7 +147,10 @@ fun ProjectsGalleryScreen(
             }
 
             items(projects, key = { it.id }) { project ->
-                ProjectCard(project = project)
+                ProjectCard(
+                    project = project,
+                    modifier = Modifier.clickable { onProjectClick(project) }
+                )
             }
 
             item {
