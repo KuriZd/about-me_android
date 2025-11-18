@@ -32,10 +32,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("spotify_screen") {
-                            SpotifyScreen(
-                                onBack = { navController.popBackStack() }
-                            )
+                            SpotifyWithFluidNav(navController = navController)
                         }
+
                     }
                 }
             }
