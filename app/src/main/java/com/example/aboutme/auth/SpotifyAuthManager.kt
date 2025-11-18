@@ -3,20 +3,26 @@ package com.example.aboutme.auth
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import java.util.UUID
 
 object SpotifyAuthManager {
 
     fun startLogin(context: Context) {
-        // 1) Generar PKCE
+        // 1. BORRAR tokens guardados
+        val prefs = context.getSharedPreferences("spotify_prefs", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+        SpotifyAuthState.accessToken = null
+        SpotifyAuthState.refreshToken = null
+
+        // 2. PKCE
         val codeVerifier = PkceUtil.generateCodeVerifier()
         val codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier)
 
-        // 2) Guardar en estado global sencillo (para el ejemplo)
         SpotifyAuthState.codeVerifier = codeVerifier
         SpotifyAuthState.state = UUID.randomUUID().toString()
 
-        // 3) Construir la URL de autorización
+        // 3. URL de autorización usando TU CONFIG
         val uri = Uri.parse(SPOTIFY_AUTH_URL).buildUpon()
             .appendQueryParameter("client_id", SPOTIFY_CLIENT_ID)
             .appendQueryParameter("response_type", "code")
@@ -27,7 +33,8 @@ object SpotifyAuthManager {
             .appendQueryParameter("state", SpotifyAuthState.state)
             .build()
 
-        // 4) Abrir navegador / app de Spotify
+        Log.d("SpotifyAuth", "Auth URL = $uri") // para verificar que salga user-top-read
+
         val intent = Intent(Intent.ACTION_VIEW, uri)
         context.startActivity(intent)
     }
