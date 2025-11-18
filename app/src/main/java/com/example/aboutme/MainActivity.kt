@@ -35,6 +35,9 @@ class MainActivity : ComponentActivity() {
                             SpotifyWithFluidNav(navController = navController)
                         }
 
+                        composable("projects_gallery") {
+                            ProjectsWithFluidNav(navController = navController)
+                        }
                     }
                 }
             }
