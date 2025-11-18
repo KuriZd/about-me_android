@@ -21,10 +21,11 @@ import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.aboutme.ui.SpotifyScreen
 
 @Composable
 fun AboutMeWithFluidNav(
-    navController: NavController          // 👈 ahora lo recibimos por parámetro
+    navController: NavController
 ) {
     val isMenuExtended = remember { mutableStateOf(false) }
 
@@ -94,3 +95,81 @@ fun AboutMeWithFluidNav(
         }
     }
 }
+
+@Composable
+fun SpotifyWithFluidNav(
+    navController: NavController
+) {
+    val isMenuExtended = remember { mutableStateOf(false) }
+
+    val fabAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 600,
+            easing = FastOutSlowInEasing
+        ),
+        label = "fabProgress"
+    )
+
+    val clickAnimationProgress by animateFloatAsState(
+        targetValue = if (isMenuExtended.value) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 350,
+            easing = LinearEasing
+        ),
+        label = "clickProgress"
+    )
+
+    val renderEffect: RenderEffect? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getBlurRenderEffect()
+        } else null
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF232633))
+    ) {
+
+        // 👇 Contenido principal: tu SpotifyScreen, con blur opcional igual que AboutMeScreen
+        SpotifyScreen(
+            onBack = { navController.popBackStack() },
+            modifier = Modifier.let { base ->
+                if (renderEffect != null && isMenuExtended.value) {
+                    base.graphicsLayer { this.renderEffect = renderEffect }
+                } else base
+            }
+        )
+
+        // 👇 Nav + FABs + círculo, igual que en AboutMeWithFluidNav
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(bottom = 14.dp)
+        ) {
+            // Bottom bar alineada al fondo
+            CustomBottomNavigation(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+
+            // Onda de click (detrás de los FAB)
+            Circle(
+                color = MaterialTheme.colorScheme.onBackground,
+                animationProgress = clickAnimationProgress
+            )
+
+            // Grupo de FABs
+            FabGroup(
+                animationProgress = fabAnimationProgress,
+                toggleAnimation = { isMenuExtended.value = !isMenuExtended.value },
+                onSpotifyClick = {
+                    // Si ya estás en spotify_screen no hace falta navegar, pero esto no rompe nada
+                    navController.navigate("spotify_screen") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+    }
+}
+
