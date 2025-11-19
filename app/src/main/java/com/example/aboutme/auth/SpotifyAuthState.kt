@@ -8,7 +8,8 @@ object SpotifyAuthState {
     var codeVerifier: String? = null
     var state: String? = null
 
-    var accessToken: String? by mutableStateOf(null)
-
-    var refreshToken: String? = null
+    // Ahora son snapshot states
+    var accessToken by mutableStateOf<String?>(null)
+    var refreshToken by mutableStateOf<String?>(null)
+    var expiresAt by mutableStateOf<Long?>(null)
 }
