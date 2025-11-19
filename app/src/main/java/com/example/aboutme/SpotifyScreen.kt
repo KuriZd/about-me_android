@@ -1,5 +1,6 @@
 package com.example.aboutme.ui
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -61,20 +62,27 @@ fun SpotifyScreen(
 ) {
     val context = LocalContext.current
 
-    // 1) Cargar token, refresh y expires_at desde SharedPreferences
+    // *** ESTE ES EL TOKEN QUE COMPOSE VA A "ESCUCHAR" ***
+    var accessToken by remember { mutableStateOf<String?>(null) }
+
+    // 1) Cargar token/refresh/expiración desde SharedPreferences
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences(
             "spotify_prefs",
-            android.content.Context.MODE_PRIVATE
+            Context.MODE_PRIVATE
         )
 
         val savedToken = prefs.getString("access_token", null)
         val savedRefresh = prefs.getString("refresh_token", null)
         val savedExpiresAt = prefs.getLong("expires_at", 0L).takeIf { it != 0L }
 
+        // Guardamos en el estado global (por si lo usas en otros lados)
         SpotifyAuthState.accessToken = savedToken
         SpotifyAuthState.refreshToken = savedRefresh
         SpotifyAuthState.expiresAt = savedExpiresAt
+
+        // Y MUY IMPORTANTE: también en el state de Compose
+        accessToken = savedToken
 
         Log.d(
             "SpotifyScreen",
@@ -84,11 +92,8 @@ fun SpotifyScreen(
         )
     }
 
-    // Leemos el token actual del estado global
-    val accessToken = SpotifyAuthState.accessToken
-
     LaunchedEffect(accessToken) {
-        Log.d("SpotifyScreen", "accessToken = ${accessToken?.take(10) ?: "null"}")
+        Log.d("SpotifyScreen", "accessToken(state) = ${accessToken?.take(10) ?: "null"}")
     }
 
     // ----------------- Estados UI -----------------
@@ -171,6 +176,11 @@ fun SpotifyScreen(
                     imageUrl = t.imageUrl
                 )
             }
+
+            Log.d("SpotifyScreen", "Top tracks cargados: ${topTracks.size}")
+            if (topTracks.isEmpty()) {
+                topTracksError = "Spotify no devolvió canciones para el último mes"
+            }
         } catch (e: Exception) {
             topTracksError = "No se pudieron cargar tus temas más escuchados"
             topTracks = emptyList()
@@ -189,7 +199,7 @@ fun SpotifyScreen(
         }
 
         while (true) {
-            loadNowPlaying(accessToken)
+            loadNowPlaying(accessToken!!)
             delay(8_000L)
         }
     }
@@ -203,7 +213,7 @@ fun SpotifyScreen(
             return@LaunchedEffect
         }
 
-        loadTopTracks(accessToken)
+        loadTopTracks(accessToken!!)
     }
 
     // Playlist fake por si no hay token / error

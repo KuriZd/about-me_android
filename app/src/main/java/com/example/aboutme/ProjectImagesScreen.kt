@@ -22,18 +22,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import java.util.Locale
 
 data class ProjectImageTile(
     val id: Int,
     val titleEs: String,
-    val titleEn: String
+    val titleEn: String,
+    val imageUrl: String
 )
 
 @Composable
@@ -50,7 +53,6 @@ fun ProjectImagesScreen(
     }
     val isSpanish = locale.language.startsWith("es")
 
-    // --- Datos del proyecto (titulo, color, descripción y tecnologías) ---
     val projectTitle: String
     val accent: Color
     val descriptionEs: String
@@ -122,16 +124,40 @@ fun ProjectImagesScreen(
     val techLabel = if (isSpanish) "Tecnologías usadas" else "Tech stack"
     val screensLabel = if (isSpanish) "Screens" else "Screens"
 
-    val tiles = remember(projectId, isSpanish) {
-        listOf(
-            ProjectImageTile(1, "Pantalla principal", "Main screen"),
-            ProjectImageTile(2, "Detalle de contenido", "Content detail"),
-            ProjectImageTile(3, "Lista / feed", "List / feed"),
-            ProjectImageTile(4, "Pantalla de búsqueda", "Search screen"),
-            ProjectImageTile(5, "Onboarding o login", "Onboarding or login"),
-            ProjectImageTile(6, "Vista complementaria", "Complementary view")
+    val tiles = remember(projectId) {
+        val titlesEs = listOf(
+            "Pantalla principal",
+            "Detalle de contenido",
+            "Lista / feed",
+            "Pantalla de búsqueda",
+            "Onboarding o login",
+            "Vista complementaria"
         )
+        val titlesEn = listOf(
+            "Main screen",
+            "Content detail",
+            "List / feed",
+            "Search screen",
+            "Onboarding or login",
+            "Complementary view"
+        )
+        val sampleImages = listOf(
+            "https://images.pexels.com/photos/2706379/pexels-photo-2706379.jpeg",
+            "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg",
+            "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg"
+        )
+
+        List(6) { index ->
+            ProjectImageTile(
+                id = index + 1,
+                titleEs = titlesEs[index],
+                titleEn = titlesEn[index],
+                imageUrl = sampleImages[index % sampleImages.size]
+            )
+        }
     }
+
+    val cardAccent = techColor(techStack.firstOrNull() ?: "")
 
     Box(
         modifier = Modifier
@@ -150,7 +176,6 @@ fun ProjectImagesScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(
@@ -181,7 +206,6 @@ fun ProjectImagesScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Descripción
             Text(
                 text = aboutLabel,
                 fontSize = 14.sp,
@@ -198,7 +222,6 @@ fun ProjectImagesScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Tech stack chips
             if (techStack.isNotEmpty()) {
                 Text(
                     text = techLabel,
@@ -214,17 +237,13 @@ fun ProjectImagesScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     techStack.forEach { tech ->
-                        TechChipForImages(
-                            label = tech,
-                            accent = accent
-                        )
+                        TechChipForImages(label = tech)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Título de la grilla
             Text(
                 text = screensLabel,
                 fontSize = 14.sp,
@@ -234,7 +253,6 @@ fun ProjectImagesScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Grid de imágenes
             LazyVerticalGrid(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -246,7 +264,8 @@ fun ProjectImagesScreen(
                 items(tiles, key = { it.id }) { tile ->
                     ProjectImageCard(
                         title = if (isSpanish) tile.titleEs else tile.titleEn,
-                        accent = accent
+                        imageUrl = tile.imageUrl,
+                        accent = cardAccent
                     )
                 }
             }
@@ -256,20 +275,21 @@ fun ProjectImagesScreen(
 
 @Composable
 private fun TechChipForImages(
-    label: String,
-    accent: Color
+    label: String
 ) {
+    val base = techColor(label)
+
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(accent.copy(alpha = 0.18f))
+            .background(base.copy(alpha = 0.18f))
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Text(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = accent.copy(alpha = 0.95f)
+            color = base.copy(alpha = 0.95f)
         )
     }
 }
@@ -277,6 +297,7 @@ private fun TechChipForImages(
 @Composable
 private fun ProjectImageCard(
     title: String,
+    imageUrl: String,
     accent: Color
 ) {
     Box(
@@ -286,25 +307,34 @@ private fun ProjectImageCard(
                 brush = Brush.linearGradient(
                     colors = listOf(
                         accent.copy(alpha = 0.7f),
-                        accent.copy(alpha = 0.1f),
+                        accent.copy(alpha = 0.12f),
                         Color(0xFF050816)
                     )
                 )
             )
-            .padding(1.5.dp)
+            .padding(1.8.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(Color(0xFF050816))
             .aspectRatio(0.58f)
     ) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = title,
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(24.dp)),
+            contentScale = ContentScale.Crop
+        )
+
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.10f),
+                            Color.Black.copy(alpha = 0.10f),
                             Color.Transparent,
-                            Color.White.copy(alpha = 0.06f)
+                            Color.Black.copy(alpha = 0.50f)
                         )
                     )
                 )
@@ -319,7 +349,7 @@ private fun ProjectImageCard(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color.Black.copy(alpha = 0.25f))
+                    .background(Color.Black.copy(alpha = 0.35f))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -333,12 +363,36 @@ private fun ProjectImageCard(
             }
 
             Text(
-                text = "2023 STYLE IS.",
+                text = "2023 STYLE·IS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White.copy(alpha = 0.9f),
                 modifier = Modifier.align(Alignment.End)
             )
         }
+    }
+}
+
+private fun techColor(tech: String): Color {
+    return when (tech.lowercase()) {
+        "kotlin" -> Color(0xFFFF6BFF)
+        "compose" -> Color(0xFF64FFDA)
+        "android" -> Color(0xFF69F0AE)
+        "react native" -> Color(0xFF00E5FF)
+        "supabase" -> Color(0xFF00C853)
+        "typescript" -> Color(0xFF40C4FF)
+        "firebase" -> Color(0xFFFFD54F)
+        "api rest" -> Color(0xFFEF9A9A)
+        "node.js" -> Color(0xFF00C853)
+        "js" -> Color(0xFFFDD835)
+        "css" -> Color(0xFF039BE5)
+        "scss" -> Color(0xFFFF6BFF)
+        "html" -> Color(0xFFFFA726)
+        "laravel 11" -> Color(0xFFE53935)
+        "php" -> Color(0xFF7E57C2)
+        "postgresql" -> Color(0xFF1976D2)
+        "tailwind" -> Color(0xFF38BDF8)
+        "nativewind" -> Color(0xFF3B82F6)
+        else -> Color(0xFFB0BEC5)
     }
 }

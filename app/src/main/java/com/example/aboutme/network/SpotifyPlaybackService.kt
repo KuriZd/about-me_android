@@ -87,68 +87,93 @@ object SpotifyPlaybackService {
 
     suspend fun getTopTracks(accessToken: String, limit: Int = 20): List<SpotifyTrack> {
         return withContext(Dispatchers.IO) {
-            try {
-                val response = api.getTopTracks(
-                    authHeader = "Bearer $accessToken",
-                    timeRange = "short_term",
-                    limit = limit
-                )
+            val ranges = listOf("short_term", "medium_term", "long_term")
 
-                val rawBody = response.body()?.string().orEmpty()
-                Log.d(TAG, "top tracks status=${response.code()} body=$rawBody")
+            for (range in ranges) {
+                try {
+                    val response = api.getTopTracks(
+                        authHeader = "Bearer $accessToken",
+                        timeRange = range,
+                        limit = limit
+                    )
 
-                if (!response.isSuccessful || rawBody.isBlank()) {
-                    return@withContext emptyList<SpotifyTrack>()
-                }
+                    // Para respuestas 2xx body(), para errores errorBody()
+                    val bodyStr = (response.body() ?: response.errorBody())
+                        ?.string()
+                        .orEmpty()
 
-                val json = JSONObject(rawBody)
-                val itemsArray = json.optJSONArray("items") ?: return@withContext emptyList<SpotifyTrack>()
-                val result = mutableListOf<SpotifyTrack>()
+                    Log.d(TAG, "top tracks [$range] status=${response.code()} body=$bodyStr")
 
-                for (i in 0 until itemsArray.length()) {
-                    val itemJson = itemsArray.optJSONObject(i) ?: continue
+                    // Si no fue 2xx, probamos con el siguiente rango
+                    if (!response.isSuccessful) {
+                        continue
+                    }
 
-                    val title = itemJson.optString("name", null)
+                    if (bodyStr.isBlank()) {
+                        continue
+                    }
 
-                    val durationMs: Int? =
-                        if (!itemJson.isNull("duration_ms")) itemJson.optInt("duration_ms") else null
+                    val json = JSONObject(bodyStr)
+                    val itemsArray = json.optJSONArray("items")
+                        ?: continue
 
-                    val artistsArray = itemJson.optJSONArray("artists")
-                    val artists = mutableListOf<SpotifyArtist>()
-                    if (artistsArray != null) {
-                        for (j in 0 until artistsArray.length()) {
-                            val artistObj = artistsArray.optJSONObject(j)
-                            val artistName = artistObj?.optString("name", null)
-                            if (!artistName.isNullOrBlank()) {
-                                artists.add(SpotifyArtist(name = artistName))
+                    if (itemsArray.length() == 0) {
+                        // Este rango no tiene datos, probamos con el siguiente
+                        continue
+                    }
+
+                    val result = mutableListOf<SpotifyTrack>()
+
+                    for (i in 0 until itemsArray.length()) {
+                        val itemJson = itemsArray.optJSONObject(i) ?: continue
+
+                        val title = itemJson.optString("name", null)
+
+                        val durationMs: Int? =
+                            if (!itemJson.isNull("duration_ms")) itemJson.optInt("duration_ms")
+                            else null
+
+                        val artistsArray = itemJson.optJSONArray("artists")
+                        val artists = mutableListOf<SpotifyArtist>()
+                        if (artistsArray != null) {
+                            for (j in 0 until artistsArray.length()) {
+                                val artistObj = artistsArray.optJSONObject(j)
+                                val artistName = artistObj?.optString("name", null)
+                                if (!artistName.isNullOrBlank()) {
+                                    artists.add(SpotifyArtist(name = artistName))
+                                }
                             }
                         }
-                    }
 
-                    val albumJson = itemJson.optJSONObject("album")
-                    val imagesArray = albumJson?.optJSONArray("images")
-                    var imageUrl: String? = null
-                    if (imagesArray != null && imagesArray.length() > 0) {
-                        val imgObj = imagesArray.optJSONObject(0)
-                        imageUrl = imgObj?.optString("url", null)
-                    }
+                        val albumJson = itemJson.optJSONObject("album")
+                        val imagesArray = albumJson?.optJSONArray("images")
+                        var imageUrl: String? = null
+                        if (imagesArray != null && imagesArray.length() > 0) {
+                            val imgObj = imagesArray.optJSONObject(0)
+                            imageUrl = imgObj?.optString("url", null)
+                        }
 
-                    result.add(
-                        SpotifyTrack(
-                            name = title,
-                            artists = if (artists.isEmpty()) null else artists,
-                            durationMs = durationMs,
-                            imageUrl = imageUrl
+                        result.add(
+                            SpotifyTrack(
+                                name = title,
+                                artists = if (artists.isEmpty()) null else artists,
+                                durationMs = durationMs,
+                                imageUrl = imageUrl
+                            )
                         )
-                    )
-                }
+                    }
 
-                Log.d(TAG, "top tracks parsed = ${result.size}")
-                result
-            } catch (e: Exception) {
-                Log.e(TAG, "Error parseando top tracks", e)
-                emptyList()
+                    Log.d(TAG, "top tracks parsed (range=$range) = ${result.size}")
+                    // Si encontramos algún rango con datos, lo regresamos y ya
+                    if (result.isNotEmpty()) return@withContext result
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parseando top tracks (range=$range)", e)
+                }
             }
+
+            Log.d(TAG, "No se encontraron top tracks en ningún rango")
+            emptyList()
         }
     }
+
 }
