@@ -287,7 +287,7 @@ private fun techColor(tech: String): Color {
         "php" -> Color(0xFF7E57C2)
         "postgresql" -> Color(0xFF1976D2)
         "tailwind" -> Color(0xFF38BDF8)
-        "nativewind" -> Color(0xFF8E24AA)
+        "nativewind" -> Color(0xFF3B82F6)
         else -> Color(0xFFB0BEC5)
     }
 }
