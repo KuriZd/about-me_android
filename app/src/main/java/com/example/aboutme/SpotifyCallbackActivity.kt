@@ -1,12 +1,17 @@
 package com.example.aboutme
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.aboutme.auth.SpotifyAuthState
 import com.example.aboutme.network.SpotifyTokenService
 import kotlinx.coroutines.launch
+
+private const val TAG = "SpotifyCallback"
+private const val PREFS_NAME = "spotify_prefs"
 
 class SpotifyCallbackActivity : ComponentActivity() {
 
@@ -39,17 +44,29 @@ class SpotifyCallbackActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val tokens = SpotifyTokenService.exchangeCodeForTokens(code)
+
             if (tokens != null) {
-                // 1) Guardar en estado global observable
+                val nowSeconds = System.currentTimeMillis() / 1000L
+                val expiresAt = nowSeconds + tokens.expiresIn
+
+                // Estado global
                 SpotifyAuthState.accessToken = tokens.accessToken
                 SpotifyAuthState.refreshToken = tokens.refreshToken
+                SpotifyAuthState.expiresAt = expiresAt
 
-                // 2) Guardar en SharedPreferences
-                val prefs = getSharedPreferences("spotify_prefs", MODE_PRIVATE)
+                // Guardar en SharedPreferences
+                val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 prefs.edit()
                     .putString("access_token", tokens.accessToken)
                     .putString("refresh_token", tokens.refreshToken)
+                    .putLong("expires_at", expiresAt)
                     .apply()
+
+                Log.d(
+                    TAG,
+                    "Guardé token=${tokens.accessToken.take(10)}..., " +
+                            "refresh=${tokens.refreshToken?.take(8)}, expiresAt=$expiresAt"
+                )
 
                 Toast.makeText(
                     this@SpotifyCallbackActivity,
@@ -64,6 +81,7 @@ class SpotifyCallbackActivity : ComponentActivity() {
                 ).show()
             }
 
+            // Volver a la app
             finish()
         }
     }
