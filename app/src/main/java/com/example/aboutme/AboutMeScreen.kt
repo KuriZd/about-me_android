@@ -2,6 +2,7 @@ package com.example.aboutme
 
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Api
@@ -35,13 +38,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 private val CeladonBlue = Color(0xFF1783A5)
@@ -51,12 +54,9 @@ private val Manatee = Color(0xFF9B9CA1)
 private val TextPrimary = Color(0xFFF5F5F7)
 private val TextMuted = Manatee
 
-private val ReactNeon = Color(0xFF61DAFB)   // React
-
-private val KotlinNeon = Color(0xFF7F52FF)  // Kotlin / Compose
-
-private val NodeNeon = Color(0xFF3ECF8E)    // Node / Supabase
-
+private val ReactNeon = Color(0xFF61DAFB)
+private val KotlinNeon = Color(0xFF7F52FF)
+private val NodeNeon = Color(0xFF3ECF8E)
 
 enum class AppLanguage { ES, EN }
 
@@ -149,7 +149,7 @@ fun stringsFor(lang: AppLanguage): UiStrings =
         )
     }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun AboutMeScreen(
     modifier: Modifier = Modifier,
@@ -171,13 +171,17 @@ fun AboutMeScreen(
     var appLang by remember { mutableStateOf(systemLang) }
     val t = remember(appLang) { stringsFor(appLang) }
 
+    val scrollState = rememberScrollState()
+    val contactRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
+
     Box(
         modifier = modifier.background(Onyx)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             Row(
@@ -198,7 +202,12 @@ fun AboutMeScreen(
             HeroCard(
                 modifier = Modifier.fillMaxWidth(),
                 t = t,
-                onCvClick = onCvClick
+                onCvClick = onCvClick,
+                onContactClick = {
+                    coroutineScope.launch {
+                        contactRequester.bringIntoView()
+                    }
+                }
             )
 
             Spacer(Modifier.height(20.dp))
@@ -233,7 +242,9 @@ fun AboutMeScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            SectionCard {
+            SectionCard(
+                modifier = Modifier.bringIntoViewRequester(contactRequester)
+            ) {
                 ContactSection(t)
             }
 
@@ -241,9 +252,6 @@ fun AboutMeScreen(
         }
     }
 }
-
-
-
 
 @Composable
 fun LanguageToggle(
@@ -291,7 +299,7 @@ fun AnimatedProfileTitle(
         "KuriZd",
         "クリカベリ",
         "한국어",
-        "庫里卡維里",
+        "庫里卡維리",
         "курикавери",
         "קוריקאוורי",
         "كوري"
@@ -301,7 +309,7 @@ fun AnimatedProfileTitle(
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(2000) // 2 segundos
+            delay(2000)
             index = (index + 1) % variants.size
         }
     }
@@ -315,12 +323,12 @@ fun AnimatedProfileTitle(
     )
 }
 
-
 @Composable
 fun HeroCard(
     modifier: Modifier = Modifier,
     t: UiStrings,
-    onCvClick: () -> Unit
+    onCvClick: () -> Unit,
+    onContactClick: () -> Unit
 ) {
     Surface(
         modifier = modifier,
@@ -396,7 +404,7 @@ fun HeroCard(
                     Text(t.heroBtnCv, fontSize = 13.sp)
                 }
                 OutlinedButton(
-                    onClick = { },
+                    onClick = onContactClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(999.dp),
                     colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
@@ -409,9 +417,6 @@ fun HeroCard(
         }
     }
 }
-
-
-
 
 @Composable
 fun SectionCard(
@@ -451,7 +456,6 @@ fun InfoChip(
         )
     }
 }
-
 
 @Composable
 fun SectionTitle(title: String, subtitle: String? = null) {
