@@ -9,10 +9,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,7 +46,6 @@ data class TrackUi(
     val imageUrl: String?
 )
 
-
 data class NowPlayingUi(
     val title: String,
     val artist: String,
@@ -46,32 +54,44 @@ data class NowPlayingUi(
     val imageUrl: String?
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpotifyScreen(
-    onBack: () -> Unit,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
+    // 1) Cargar token, refresh y expires_at desde SharedPreferences
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences(
             "spotify_prefs",
             android.content.Context.MODE_PRIVATE
         )
+
         val savedToken = prefs.getString("access_token", null)
-        Log.d("SpotifyScreen", "savedToken = ${savedToken?.take(10) ?: "null"}")
-        if (savedToken != null && SpotifyAuthState.accessToken == null) {
-            SpotifyAuthState.accessToken = savedToken
-        }
+        val savedRefresh = prefs.getString("refresh_token", null)
+        val savedExpiresAt = prefs.getLong("expires_at", 0L).takeIf { it != 0L }
+
+        SpotifyAuthState.accessToken = savedToken
+        SpotifyAuthState.refreshToken = savedRefresh
+        SpotifyAuthState.expiresAt = savedExpiresAt
+
+        Log.d(
+            "SpotifyScreen",
+            "savedToken=${savedToken?.take(10) ?: "null"}, " +
+                    "savedRefresh=${savedRefresh?.take(10) ?: "null"}, " +
+                    "expiresAt=$savedExpiresAt"
+        )
     }
 
+    // Leemos el token actual del estado global
     val accessToken = SpotifyAuthState.accessToken
 
     LaunchedEffect(accessToken) {
         Log.d("SpotifyScreen", "accessToken = ${accessToken?.take(10) ?: "null"}")
     }
 
+    // ----------------- Estados UI -----------------
     var nowPlaying by remember { mutableStateOf<NowPlayingUi?>(null) }
     var nowPlayingLoading by remember { mutableStateOf(false) }
     var nowPlayingError by remember { mutableStateOf<String?>(null) }
@@ -79,6 +99,8 @@ fun SpotifyScreen(
     var topTracks by remember { mutableStateOf<List<TrackUi>>(emptyList()) }
     var topTracksLoading by remember { mutableStateOf(false) }
     var topTracksError by remember { mutableStateOf<String?>(null) }
+
+    // ----------------- Lógica de carga -----------------
 
     suspend fun loadNowPlaying(accessTokenNonNull: String) {
         nowPlayingLoading = true
@@ -101,6 +123,7 @@ fun SpotifyScreen(
                     val seconds = totalSeconds % 60
                     return "%d:%02d".format(minutes, seconds)
                 }
+
                 Log.d(
                     "SpotifyPlaybackService",
                     "progressMs=${response.progressMs}, durationMs=${track.durationMs}, imageUrl=$imageUrl"
@@ -148,7 +171,6 @@ fun SpotifyScreen(
                     imageUrl = t.imageUrl
                 )
             }
-
         } catch (e: Exception) {
             topTracksError = "No se pudieron cargar tus temas más escuchados"
             topTracks = emptyList()
@@ -157,6 +179,7 @@ fun SpotifyScreen(
         }
     }
 
+    // Auto-actualización de "Reproduciendo ahora"
     LaunchedEffect(accessToken) {
         if (accessToken == null) {
             nowPlaying = null
@@ -171,6 +194,7 @@ fun SpotifyScreen(
         }
     }
 
+    // Carga inicial de top tracks
     LaunchedEffect(accessToken) {
         if (accessToken == null) {
             topTracks = emptyList()
@@ -182,6 +206,7 @@ fun SpotifyScreen(
         loadTopTracks(accessToken)
     }
 
+    // Playlist fake por si no hay token / error
     val fakeTracks = listOf(
         TrackUi("Focus mode", "Lo-fi beats", "2:31", null),
         TrackUi("Clean deploy", "Dev Flow", "3:12", null),
@@ -190,6 +215,7 @@ fun SpotifyScreen(
         TrackUi("Refactor vibes", "Indie chill", "2:57", null)
     )
 
+    // ----------------- UI -----------------
 
     Scaffold(
         containerColor = Color(0xFF05080D),
@@ -213,6 +239,8 @@ fun SpotifyScreen(
                     .fillMaxSize()
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
+
+                // Header con portada
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -269,6 +297,7 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Botón de login solo si no hay token
                 if (accessToken == null) {
                     Button(
                         onClick = { SpotifyAuthManager.startLogin(context) }
@@ -281,6 +310,7 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // ---------- Reproduciendo ahora ----------
                 Text(
                     text = "Reproduciendo ahora",
                     style = MaterialTheme.typography.titleMedium,
@@ -322,6 +352,7 @@ fun SpotifyScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // ---------- Top del último mes ----------
                 Text(
                     text = if (accessToken != null) "Tus más escuchados del último mes" else "Tracks",
                     style = MaterialTheme.typography.titleSmall,
@@ -363,6 +394,8 @@ fun SpotifyScreen(
         }
     }
 }
+
+// ---------- Composables auxiliares ----------
 
 @Composable
 private fun NowPlayingCard(track: NowPlayingUi) {
@@ -413,7 +446,7 @@ private fun NowPlayingCard(track: NowPlayingUi) {
                     )
                 }
 
-                Icon(
+                androidx.compose.material3.Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Reproduciendo",
                     tint = Color.White
@@ -564,4 +597,3 @@ private fun TrackRow(
         )
     }
 }
-
