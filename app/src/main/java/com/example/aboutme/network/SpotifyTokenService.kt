@@ -21,6 +21,42 @@ object SpotifyTokenService {
             .create(SpotifyTokenApi::class.java)
     }
 
+    // ---------- Parseo común del JSON de tokens ----------
+    private fun parseTokenJson(rawBody: String): TokenResponse? {
+        if (rawBody.isBlank()) return null
+
+        return try {
+            val json = JSONObject(rawBody)
+
+            val accessToken = json.optString("access_token", "")
+            if (accessToken.isBlank()) {
+                Log.e(TAG, "JSON sin access_token")
+                null
+            } else {
+                val tokenType    = json.optString("token_type", "Bearer")
+                val expiresIn    = json.optLong("expires_in", 0L)
+                val refreshToken =
+                    if (json.has("refresh_token")) json.optString("refresh_token", null)
+                    else null
+                val scope        =
+                    if (json.has("scope")) json.optString("scope", null)
+                    else null
+
+                TokenResponse(
+                    accessToken  = accessToken,
+                    tokenType    = tokenType,
+                    expiresIn    = expiresIn,
+                    refreshToken = refreshToken,
+                    scope        = scope
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parseando JSON de token", e)
+            null
+        }
+    }
+
+    // ---------- Intercambiar code (PKCE) por tokens ----------
     suspend fun exchangeCodeForTokens(code: String): TokenResponse? {
         val codeVerifier = SpotifyAuthState.codeVerifier
         if (codeVerifier == null) {
@@ -35,46 +71,50 @@ object SpotifyTokenService {
                     codeVerifier = codeVerifier
                 )
 
-                val rawBody: String = response.body()?.string().orEmpty()
+                val rawBody = response.body().orElseEmpty()
 
                 Log.d(TAG, "token status = ${response.code()} msg = ${response.message()}")
                 Log.d(TAG, "token raw body = $rawBody")
 
                 if (!response.isSuccessful) {
-                    // Si no fue 2xx, ya sabemos que hay error
-                    null
-                } else if (rawBody.isBlank()) {
                     null
                 } else {
-                    val json = JSONObject(rawBody)
-
-                    val accessToken = json.optString("access_token", "")
-                    if (accessToken.isBlank()) {
-                        Log.e(TAG, "JSON sin access_token")
-                        null
-                    } else {
-                        val tokenType = json.optString("token_type", "Bearer")
-                        val expiresIn = json.optLong("expires_in", 0L)
-                        val refreshToken = if (json.has("refresh_token"))
-                            json.optString("refresh_token", null)
-                        else null
-                        val scope = if (json.has("scope"))
-                            json.optString("scope", null)
-                        else null
-
-                        TokenResponse(
-                            accessToken = accessToken,
-                            tokenType = tokenType,
-                            expiresIn = expiresIn,
-                            refreshToken = refreshToken,
-                            scope = scope
-                        )
-                    }
+                    parseTokenJson(rawBody)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error parseando token", e)
+                Log.e(TAG, "Error solicitando token", e)
                 null
             }
         }
     }
+
+    // ---------- Refrescar access token usando refresh_token ----------
+    suspend fun refreshAccessToken(refreshToken: String): TokenResponse? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = api.refreshAccessToken(
+                    refreshToken = refreshToken
+                )
+
+                val rawBody = response.body().orElseEmpty()
+
+                Log.d(TAG, "refresh status = ${response.code()} msg = ${response.message()}")
+                Log.d(TAG, "refresh raw body = $rawBody")
+
+                if (!response.isSuccessful) {
+                    null
+                } else {
+                    parseTokenJson(rawBody)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refrescando token", e)
+                null
+            }
+        }
+    }
+
+    // ---------- Extensión correcta ----------
+    // Se define sobre ResponseBody? (NO sobre String)
+    private fun ResponseBody?.orElseEmpty(): String =
+        this?.string().orEmpty()
 }
